@@ -1,29 +1,31 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
+const AWS = require('aws-sdk');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+
+// Установка конфигурации AWS SDK
+AWS.config.update({
+  region: "eu-north-1",
+  accessKeyId: "ASIA5WIQPRZJO3RJKB7V",
+  secretAccessKey: "CnBV8bZtUgj9HY4paiolmZgZP4u54sKkLqqIAi3C",
+  sessionToken: "IQoJb3JpZ2luX2VjEMT//////////wEaCXVzLWVhc3QtMiJHMEUCIBmL10dfqnsf/ht6mIlNLhcNpWU6mUdNppHTvP2zhyGxAiEAnNqJcWsSRRoWG5T3w8IAWLF0P3Vxeft0oie7ZU6YxcoqtwIInf//////////ARAAGgw5NDExNjkyODI2NDIiDPZ7wU1kKt88j4zCdiqLAuWPAhnf9s+Xzsg0LCU9iTJoXnEzq10gJU6MpDl5fD0dFWx5yek4jOOJIoCmuPTAFT+a7HXOnyEfG/lUeKQiAKySLcOLKRoF8IsFmwfCzzxvw59kd1iwQhu0JHnrqixzkseSyO6vCLpXTe0FMIuqOOLYfZTVYcm2H0Minj5NlONvGcvuPi98Mo9V1FiDDyGfuqHadh243ZwbCElfXVS4qTVmX6E+JTsqVNpuC9ktyQnWpKaw/PtbjCr+KvgJTBQv/NE9jVK7pCiuVo7mEzJFyfEpHE71li8joXC/RrXS8EOCcSWExPP8q23UfU0cqk3Xr0q4Hsibo+euIgmQl8R6cP0YISph7aDj/+WdrzD4l7auBjqdAeJpPRrQkTQF1pF8XE4h8804/boJj36rsYguIiTxlaEjjlb+GPsdiGhFwKKGL+gp+bkC6CWUyMI7FOe+6UtqbfoYv00qWwk3xnmak+h3IR3sRHDvpzee0B4JYAX8DO2Wh3GiI/vgGsw0Qi/s/m0McN9dQ8bT9nIhS1Mo039tkARFdq1+2JJZjlBxCfFh7QW3n8GvBa4BPzKW1Gt1dBQ=",
+});
+
+// Создание экземпляра S3
+const s3 = new AWS.S3();
 
 // Роут для регистрации пользователя
 app.post('/registration', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    let usersData = [];
-
-    // Проверяем существует ли файл и не пуст ли он
-    if (fs.existsSync('users.txt')) {
-      const fileContent = fs.readFileSync('users.txt', 'utf8');
-      if (fileContent.trim() !== '') {
-        usersData = JSON.parse(`[${fileContent.trim().split('\n').join(',')}]`);
-      }
-    }
+    // Получение данных о пользователях из S3
+    let usersData = await getObjectFromS3('users.json') || [];
 
     // Проверка, нет ли уже пользователя с таким именем или почтой
     const existingUser = usersData.find(user => user.username === username || user.email === email);
@@ -34,8 +36,8 @@ app.post('/registration', async (req, res) => {
     // Добавление нового пользователя в массив пользователей
     usersData.push({ username, email, password });
 
-    // Запись обновленных данных о пользователях в файл
-    fs.writeFileSync('users.txt', usersData.map(user => JSON.stringify(user)).join('\n'));
+    // Запись обновленных данных о пользователях в S3
+    await putObjectToS3('users.json', usersData);
 
     console.log('User registered successfully:', { username, email });
     res.status(200).json({ message: 'Registration successful' });
@@ -51,10 +53,9 @@ app.post('/login', async (req, res) => {
   try {
     const { loginIdentifier, loginPassword } = req.body;
 
-    // Чтение данных о пользователях из файла
-    const fileContent = fs.readFileSync('users.txt', 'utf8');
-    const usersData = fileContent.trim().split('\n').map(line => JSON.parse(line));
-    
+    // Получение данных о пользователях из S3
+    const usersData = await getObjectFromS3('users.json') || [];
+
     // Поиск пользователя по имени пользователя или почте
     const user = usersData.find(user => user.username === loginIdentifier || user.email === loginIdentifier);
     if (!user || user.password !== loginPassword) {
@@ -76,20 +77,14 @@ app.post('/createRoom', async (req, res) => {
     const { id, name, password, maxPlayers, players } = req.body;
     const newRoom = { id, name, password, maxPlayers, players };
 
-    // Чтение данных о комнатах из файла
-    let roomsData = [];
-    if (fs.existsSync('rooms.txt')) {
-      const fileContent = fs.readFileSync('rooms.txt', 'utf8');
-      if (fileContent.trim() !== '') {
-        roomsData = JSON.parse(`[${fileContent.trim().split('\n').join(',')}]`);
-      }
-    }
+    // Получение данных о комнатах из S3
+    let roomsData = await getObjectFromS3('rooms.json') || [];
 
     // Добавление новой комнаты в массив комнат
     roomsData.push(newRoom);
 
-    // Запись обновленных данных о комнатах в файл
-    fs.writeFileSync('rooms.txt', roomsData.map(room => JSON.stringify(room)).join('\n'));
+    // Запись обновленных данных о комнатах в S3
+    await putObjectToS3('rooms.json', roomsData);
 
     console.log('Room created successfully:', newRoom);
     res.status(200).json({ message: 'Room created successfully', room: newRoom });
@@ -100,76 +95,34 @@ app.post('/createRoom', async (req, res) => {
   }
 });
 
-// Роут для удаления комнаты
-app.delete('/deleteRoom/:id', async (req, res) => {
+// Функция для получения данных из S3
+async function getObjectFromS3(key) {
   try {
-    const roomId = req.params.id;
-
-    // Чтение данных о комнатах из файла
-    let roomsData = [];
-    if (fs.existsSync('rooms.txt')) {
-      const fileContent = fs.readFileSync('rooms.txt', 'utf8');
-      console.log('File content:', fileContent); // Добавлено для отладки
-      if (fileContent.trim() !== '') {
-        roomsData = JSON.parse(fileContent);
-      }
-    }
-
-    console.log('Rooms data before deletion:', roomsData); // Добавлено для отладки
-
-    // Удаление комнаты с указанным id из массива комнат
-    roomsData = roomsData.filter(room => room.id !== roomId);
-
-    console.log('Rooms data after deletion:', roomsData); // Добавлено для отладки
-
-    // Запись обновленных данных о комнатах в файл
-    fs.writeFileSync('rooms.txt', JSON.stringify(roomsData));
-
-    console.log('Room deleted successfully:', roomId);
-    res.status(200).json({ message: `Room ${roomId} deleted successfully` });
-
+    const data = await s3.getObject({ Bucket: 'cyclic-proud-lime-centipede-eu-north-1', Key: key }).promise();
+    return JSON.parse(data.Body.toString());
   } catch (error) {
-    console.error('Error deleting room:', error);
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    if (error.code === 'NoSuchKey') {
+      // Если ключ не существует, возвращаем null
+      return null;
+    }
+    console.error('Error getting object from S3:', error);
+    throw error;
   }
-});
+}
 
-
-
-
-// Роут для входа в игровую комнату
-app.post('/enterRoom/:id', async (req, res) => {
+// Функция для записи данных в S3
+async function putObjectToS3(key, data) {
   try {
-    const roomId = req.params.id;
-
-    // Чтение данных о комнатах из файла
-    let roomsData = [];
-    if (fs.existsSync('rooms.txt')) {
-      const fileContent = fs.readFileSync('rooms.txt', 'utf8');
-      if (fileContent.trim() !== '') {
-        roomsData = JSON.parse(`[${fileContent.trim().split('\n').join(',')}]`);
-      }
-    }
-
-    // Находим комнату с указанным id и увеличиваем количество игроков на 1
-    const roomIndex = roomsData.findIndex(room => room.id === roomId);
-    if (roomIndex !== -1) {
-      roomsData[roomIndex].players++;
-    } else {
-      throw new Error(`Room with id ${roomId} not found`);
-    }
-
-    // Запись обновленных данных о комнатах в файл
-    fs.writeFileSync('rooms.txt', JSON.stringify(roomsData));
-
-    console.log('Player entered room:', roomId);
-    res.status(200).json({ message: `Entered room ${roomId}` });
-
+    await s3.putObject({
+      Body: JSON.stringify(data),
+      Bucket: 'cyclic-proud-lime-centipede-eu-north-1',
+      Key: key,
+    }).promise();
   } catch (error) {
-    console.error('Error entering room:', error);
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    console.error('Error putting object to S3:', error);
+    throw error;
   }
-});
+}
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
