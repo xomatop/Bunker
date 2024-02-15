@@ -1,0 +1,2 @@
+{"id":"4o82iykbk","name":"123","password":"123","maxPlayers":"123","players":0}
+{"id":"cnloik8y7","name":"10","password":"10","maxPlayers":"10","players":0}

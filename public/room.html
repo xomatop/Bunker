@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Game Room</title>
+  <style>
+    body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://media.discordapp.net/attachments/765366078138089522/1190097711685447680/43567890-3JE789R75R86DFCLR7I89OL.png?ex=65ceb45d&is=65bc3f5d&hm=eb0847cacd3e883ec43ab92dd86f5340f8c54552f2034f1c2c7f67e6961973a5&=&format=webp&quality=lossless&width=1091&height=682');
+      background-size: cover;
+      z-index: -1;
+      font-family: 'Exo 2', sans-serif;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-top: 10px;
+      margin-left: 20px;
+      margin-right: 20px;
+      color: rgb(0, 0, 0);
+    }
+
+    .catastrophe-details,
+    .bunker-details,
+    .bunker-contents,
+    .players {
+      width: 30%;
+      font-size: 14px;
+    }
+
+    .player-window {
+      width: 450px;
+      height: 250px;
+      margin-top: 40px;
+      margin-bottom: 40px;
+      margin-left: 40px;
+      margin-right: 40px;
+      background-color: rgba(255, 255, 255, 0.5); /* Прозрачный белый цвет */
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* Тень */
+      display: inline-block;
+    }
+
+    .catastrophe-type {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="catastrophe-details">
+      <h2>Катастрофа</h2>
+      <div class="catastrophe-type" id="catastropheType">123</div>
+    </div>
+    <div class="bunker-details">
+      <h2>Бункер</h2>
+      <div class="bunker-info">
+        <p>Продолжительность: <span id="bunkerDuration">10 месяцев</span></p>
+        <p>Площадь: <span id="bunkerArea">100кв.м</span></p>
+      </div>
+    </div>
+    <div class="bunker-contents">
+      <h2>Имеется в бункере</h2>
+      <p id="bunkerContents">Запасы еды, вода, медицинский инвентарь</p>
+    </div>
+    <div class="players" id="playerContainer">
+      <!-- Здесь будут окна игроков добавлены с помощью JavaScript -->
+    </div>
+  </div>
+  <script src="room.js"></script>
+</body>
+</html>
