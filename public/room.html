@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игровая комната</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+            height: 100vh;
+        }
+
+        .container {
+            margin-top: 60px;
+            max-width: 800px;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+            text-align: center;
+        }
+
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .player-tile {
+            background-color: #333;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .player-tile img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 10px;
+        }
+
+        .player-tile input[type="file"] {
+            display: none;
+        }
+
+        .upload-button, .url-button {
+            background-color: #ff4500;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .upload-button:hover, .url-button:hover {
+            background-color: #e63f00;
+        }
+
+        .exit-button {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #ff4500;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        .exit-button:hover {
+            background-color: #e63f00;
+        }
+    </style>
+</head>
+<body>
+    <!-- Кнопка выхода -->
+    <button class="exit-button" onclick="exitRoom()">Выйти</button>
+
+    <div class="container">
+        <h1>Игровая комната</h1>
+        <div class="player-grid" id="playerGrid">
+            <!-- Плитки игроков будут генерироваться здесь -->
+        </div>
+    </div>
+
+    <script>
+        const players = [
+            { id: 1, name: 'Игрок 1', image: null },
+            { id: 2, name: 'Игрок 2', image: null },
+            // Добавьте здесь игроков по мере их подключения
+        ];
+
+        // Функция для отображения плиток игроков
+        function displayPlayerTiles() {
+            const playerGrid = document.getElementById('playerGrid');
+            playerGrid.innerHTML = ''; // Очистка сетки перед добавлением игроков
+
+            players.forEach(player => {
+                const playerTile = document.createElement('div');
+                playerTile.className = 'player-tile';
+                playerTile.innerHTML = `
+                    <img src="${player.image || 'placeholder.jpg'}" alt="${player.name}">
+                    <span>${player.name}</span>
+                    <label for="upload-${player.id}" class="upload-button">Загрузить фото</label>
+                    <input type="file" id="upload-${player.id}" onchange="handleFileUpload(event, ${player.id})">
+                    <button class="url-button" onclick="addImageUrl(${player.id})">Вставить URL</button>
+                `;
+                playerGrid.appendChild(playerTile);
+            });
+        }
+
+        // Обработка загрузки файлов
+        function handleFileUpload(event, playerId) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const player = players.find(p => p.id === playerId);
+                player.image = e.target.result; // Устанавливаем изображение как base64 строку
+                displayPlayerTiles();
+            };
+            
+            reader.readAsDataURL(file); // Чтение файла как Data URL для предварительного просмотра
+        }
+
+        // Добавление URL изображения
+        function addImageUrl(playerId) {
+            const url = prompt("Введите URL изображения или потока с веб-камеры:");
+            if (url) {
+                const player = players.find(p => p.id === playerId);
+                player.image = url; // Установка изображения по URL
+                displayPlayerTiles();
+            }
+        }
+
+        // Функция для выхода из комнаты
+        function exitRoom() {
+            const confirmation = confirm("Вы уверены, что хотите выйти?");
+            if (confirmation) {
+                window.location.href = "/"; // Переход на главную страницу
+            }
+        }
+
+        displayPlayerTiles(); // Инициализация отображения плиток
+    </script>
+</body>
+</html>

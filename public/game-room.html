@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игровая комната - Бункер</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            background-image: url('bunker-background.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+
+        h1 {
+            color: #ff4500;
+            margin: 20px 0;
+        }
+
+        .players-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 80%;
+        }
+
+        .player {
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 1px solid #ff4500;
+            border-radius: 10px;
+            margin: 10px;
+            padding: 10px;
+            width: 200px;
+            text-align: center;
+        }
+
+        .player video {
+            max-width: 100%;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .input-container {
+            margin-top: 10px;
+        }
+
+        .input-container input {
+            width: 100%;
+            padding: 5px;
+            margin: 5px 0;
+            border: 1px solid #ff4500;
+            border-radius: 5px;
+            background-color: #333;
+            color: #fff;
+        }
+
+        .input-container button {
+            background-color: #ff4500;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .input-container button:hover {
+            background-color: #e63f00;
+        }
+    </style>
+</head>
+<body>
+    <h1>Игровая комната</h1>
+    <div class="players-container" id="playersContainer">
+        <!-- Окна игроков будут добавлены сюда -->
+    </div>
+
+    <script>
+        const roomId = window.location.pathname.split('/').pop(); // Получаем ID комнаты из URL
+        let numberOfPlayers = 0; // Переменная для хранения количества игроков
+
+        // Функция для получения данных о игроках в комнате
+        async function fetchPlayers() {
+            const response = await fetch(`/room/${roomId}/players`); // Запрос к серверу для получения игроков
+            if (response.ok) {
+                const players = await response.json();
+                numberOfPlayers = players.length; // Обновляем количество игроков
+                players.forEach((player, index) => {
+                    createPlayerWindow(index + 1, player); // Создаем окно для каждого игрока
+                });
+            } else {
+                console.error('Ошибка при получении данных о игроках:', response.status);
+            }
+        }
+
+        // Функция для создания окна игрока
+        function createPlayerWindow(playerId, player) {
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'player';
+            playerDiv.innerHTML = `
+                <h3>Игрок ${playerId}</h3>
+                <video id="video${playerId}" autoplay></video>
+                <img id="image${playerId}" src="${player.imageUrl || ''}" alt="Изображение игрока" />
+                <div class="input-container">
+                    <input type="text" id="imageUrl${playerId}" placeholder="Вставьте URL изображения или веб-камеры" />
+                    <button onclick="setImage(${playerId})">Установить изображение</button>
+                </div>
+            `;
+            document.getElementById('playersContainer').appendChild(playerDiv);
+            startVideoStream(playerId); // Запускаем потоковое видео
+        }
+
+        // Функция для установки изображения
+        function setImage(playerId) {
+            const urlInput = document.getElementById(`imageUrl${playerId}`).value;
+            const imageElement = document.getElementById(`image${playerId}`);
+            imageElement.src = urlInput; // Устанавливаем изображение по URL
+            savePlayerImage(playerId, urlInput); // Сохраняем изображение в локальном хранилище
+        }
+
+        // Функция для сохранения состояния игрока в локальном хранилище
+        function savePlayerImage(playerId, imageUrl) {
+            localStorage.setItem(`player${playerId}Image`, imageUrl);
+        }
+
+        // Функция для восстановления состояния из локального хранилища
+        function restorePlayerImages() {
+            for (let i = 1; i <= numberOfPlayers; i++) {
+                const savedImage = localStorage.getItem(`player${i}Image`);
+                if (savedImage) {
+                    document.getElementById(`image${i}`).src = savedImage; // Восстанавливаем изображение
+                }
+            }
+        }
+
+        // Функция для старта видео-потока
+        async function startVideoStream(playerId) {
+            const videoElement = document.getElementById(`video${playerId}`);
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream; // Присоединяем поток к видео элементу
+            } catch (error) {
+                console.error('Ошибка доступа к веб-камере:', error);
+            }
+        }
+
+        // Инициализация
+        fetchPlayers();
+        window.onload = restorePlayerImages; // Восстанавливаем состояния при загрузке страницы
+    </script>
+</body>
+</html>

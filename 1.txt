@@ -1,0 +1,225 @@
+//Серверный код
+const express = require('express');
+const mysql = require('mysql2');
+const fs = require('fs');
+const path = require('path');
+const bodyParser = require('body-parser');
+const multer = require('multer');
+const app = express();
+
+
+// Подключение к базе данных MySQL
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: 'xoma',
+    database: 'bunker'
+});
+
+db.connect((err) => {
+    if (err) {
+        console.error('Ошибка подключения к базе данных:', err);
+    } else {
+        console.log('Подключение к базе данных успешно установлено');
+    }
+});
+
+// Устанавливаем путь к каталогу, где находится файл rooms.html
+const publicDirectoryPath = path.join(__dirname, 'public');
+
+// Используем статический middleware для обслуживания статических файлов из publicDirectoryPath
+app.use(express.static(publicDirectoryPath));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+
+const upload = multer({ dest: 'uploads/' });
+
+let rooms = [];
+
+const roomsFilePath = path.join(__dirname, 'rooms.txt');
+
+function saveRoomsToFile() {
+    fs.writeFileSync(roomsFilePath, JSON.stringify(rooms, null, 2));
+}
+
+function loadRoomsFromFile() {
+    if (fs.existsSync(roomsFilePath)) {
+        const data = fs.readFileSync(roomsFilePath, 'utf8');
+        rooms = JSON.parse(data);
+        console.log('Комнаты загружены из файла.');
+    } else {
+        console.log('Файл с комнатами не найден, создаем новый.');
+    }
+}
+
+loadRoomsFromFile();
+
+function deleteRoomsFileAfterDelay() {
+    setTimeout(() => {
+        fs.unlink(roomsFilePath, (err) => {
+            if (err) {
+                console.error('Ошибка при удалении файла rooms.txt:', err);
+            } else {
+                console.log('Файл rooms.txt был удален.');
+            }
+        });
+    }, 120 * 60 * 1000);
+}
+
+app.get('/rooms', (req, res) => {
+    res.json(rooms);
+});
+
+app.post('/create-room', (req, res) => {
+    const { roomName, password, maxPlayers } = req.body;
+    const roomId = `room_${Date.now()}`;
+    const room = {
+        id: roomId,
+        name: roomName,
+        password: password ? password : null,
+        maxPlayers: parseInt(maxPlayers),
+        players: []
+    };
+
+    rooms.push(room);
+    console.log(`Комната создана: ${roomName}, ID: ${roomId}, Максимальное количество игроков: ${maxPlayers}`);
+
+    saveRoomsToFile();
+    deleteRoomsFileAfterDelay();
+
+    res.redirect(`/room/${roomId}`);
+});
+
+app.get('/room/:id', (req, res) => {
+    const room = rooms.find(r => r.id === req.params.id);
+    if (!room) {
+        return res.status(404).send('Комната не найдена');
+    }
+    res.sendFile(path.join(publicDirectoryPath, 'room.html'));
+});
+
+app.get('/room/:id/players', (req, res) => {
+    const room = rooms.find(r => r.id === req.params.id);
+    if (!room) {
+        return res.status(404).send('Комната не найдена');
+    }
+    res.json(room.players);
+});
+
+app.post('/enter-room/:id', (req, res) => {
+    const room = rooms.find(r => r.id === req.params.id);
+    if (!room) {
+        return res.status(404).send('Комната не найдена');
+    }
+
+    if (room.password && room.password !== req.body.password) {
+        return res.status(403).send('Неверный пароль');
+    }
+
+    if (room.players.length >= room.maxPlayers) {
+        return res.status(403).send('Комната заполнена');
+    }
+
+    const player = {
+        id: `player_${Date.now()}`,
+        imageUrl: null
+    };
+    
+    room.players.push(player);
+    console.log(`Игрок вошел в комнату: ${room.name}, ID: ${room.id}, Текущие игроки: ${room.players.length}`);
+    saveRoomsToFile(); 
+    res.send({ message: 'Вы вошли в комнату', playerId: player.id });
+});
+
+app.post('/room/:roomId/player/:playerId/image', upload.single('image'), (req, res) => {
+    const { roomId, playerId } = req.params;
+
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) {
+        return res.status(404).send('Комната не найдена');
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+        return res.status(404).send('Игрок не найден');
+    }
+
+    if (req.file) {
+        const uploadedImageUrl = `/uploads/${req.file.filename}`;
+        player.imageUrl = uploadedImageUrl;
+        console.log(`Игрок ${playerId} загрузил фото: ${uploadedImageUrl}`);
+    } else {
+        return res.status(400).send('Необходимо загрузить изображение.');
+    }
+
+    saveRoomsToFile();
+    res.send('Изображение обновлено');
+});
+
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(publicDirectoryPath, 'register.html'));
+});
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(publicDirectoryPath, 'login.html'));
+});
+
+app.post('/register', (req, res) => {
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+        return res.status(400).send('Все поля должны быть заполнены');
+    }
+
+    const checkQuery = `SELECT * FROM users WHERE username = ? OR email = ?`;
+    db.query(checkQuery, [username, email], (err, results) => {
+        if (err) {
+            console.error('Ошибка при проверке пользователя:', err);
+            return res.status(500).send('Ошибка сервера');
+        }
+
+        if (results.length > 0) {
+            return res.status(400).send('Пользователь с таким именем или email уже существует');
+        }
+
+        const insertQuery = `INSERT INTO users (username, email, password) VALUES (?, ?, ?)`;
+        db.query(insertQuery, [username, email, password], (err, result) => {
+            if (err) {
+                console.error('Ошибка при добавлении пользователя:', err);
+                return res.status(500).send('Ошибка сервера');
+            }
+            // Перенаправляем на index.html после успешной регистрации
+            res.redirect('/index.html');
+        });
+    });
+});
+
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).send('Все поля должны быть заполнены');
+    }
+
+    const selectQuery = `SELECT * FROM users WHERE username = ? AND password = ?`;
+    db.query(selectQuery, [username, password], (err, results) => {
+        if (err) {
+            console.error('Ошибка при проверке пользователя:', err);
+            return res.status(500).send('Ошибка сервера');
+        }
+
+        if (results.length > 0) {
+            res.redirect('/index.html'); // Перенаправление при успешном входе
+        } else {
+            res.redirect('/login?error=invalid_credentials'); // Редирект с ошибкой
+        }
+    });
+});
+
+
+
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
+});

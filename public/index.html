@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Игровые комнаты - Бункер</title>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1e1e1e;
+            color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        .title {
+            font-family: 'Archivo Black', sans-serif;
+            font-size: 36px;
+            color: white;
+            text-shadow: 0 0 10px white;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .icon {
+            margin-right: 40px;
+            width: 30px; 
+            height: 30px; 
+            cursor: pointer;
+        }
+
+        .container {
+            margin-top: 120px; /* Отступ для шапки */
+            max-width: 600px;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #ff4500;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ff4500;
+            border-radius: 5px;
+            background-color: #333;
+            color: #fff;
+        }
+
+        .room {
+            padding: 10px;
+            border: 1px solid #ff4500;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .enter-button {
+            background-color: #ff4500;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .enter-button:hover {
+            background-color: #e63f00;
+        }
+
+        .create-button {
+            width: 100%;
+            padding: 10px;
+            margin: 20px 0;
+            background-color: #ff4500;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .create-button:hover {
+            background-color: #e63f00;
+        }
+
+        .message {
+            margin-top: 20px;
+        }
+
+        a {
+            color: #ff4500;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="title">BUNKER</div>
+        <div class="icon">
+            <img src="/login.svg" alt="Войти" id="login-icon" />
+        </div>
+    </header>
+
+    <div class="container">
+        <h1>Игровые комнаты</h1>
+        <input type="text" id="search" placeholder="Поиск по имени комнаты" oninput="filterRooms()">
+        <div id="rooms">
+            <p id="no-rooms-message" style="display: none; color: #ff4500;">Нет доступных комнат</p>
+        </div>
+        <button class="create-button" onclick="window.location.href='/create-room.html'">Создать новую комнату</button>
+    </div>
+
+    <script>
+        let rooms = [];
+        let isUserLoggedIn = false; // Пример переменной для проверки, авторизован ли пользователь
+
+        // Функция для получения данных о комнатах и их отображения
+        async function fetchRooms() {
+            try {
+                const response = await fetch('/rooms');
+                if (!response.ok) throw new Error("Ошибка при загрузке комнат");
+                rooms = await response.json();
+                displayRooms(rooms);
+            } catch (error) {
+                console.error("Ошибка API:", error);
+                document.getElementById('rooms').innerHTML = '<p style="color: red;">Ошибка загрузки комнат</p>';
+            }
+        }
+
+        function displayRooms(roomsToDisplay) {
+            const roomsContainer = document.getElementById('rooms');
+            const noRoomsMessage = document.getElementById('no-rooms-message');
+            roomsContainer.innerHTML = '';
+
+            if (!roomsToDisplay || roomsToDisplay.length === 0) {
+                noRoomsMessage.style.display = 'block';
+                return;
+            }
+            noRoomsMessage.style.display = 'none';
+
+            roomsToDisplay.forEach(room => {
+                const playerCount = Array.isArray(room.players) ? room.players.length : 0;
+                const roomElement = document.createElement('div');
+                roomElement.className = 'room';
+                roomElement.innerHTML = `
+                    <span>${room.name} (${playerCount} из ${room.max_players || 0} игроков)</span>
+                    <button class="enter-button" onclick="enterRoom('${room.id}', '${room.password ? 'true' : 'false'}')">Войти</button>
+                `;
+                roomsContainer.appendChild(roomElement);
+            });
+        }
+
+        // Функция для фильтрации комнат
+        function filterRooms() {
+            const searchTerm = document.getElementById('search').value.toLowerCase();
+            const filteredRooms = rooms.filter(room => room.name.toLowerCase().includes(searchTerm));
+            displayRooms(filteredRooms);
+        }
+
+        async function enterRoom(id, requiresPassword) {
+            try {
+                if (requiresPassword === 'true') {
+                    const password = prompt("Введите пароль для входа в комнату:");
+                    if (!password) return;
+
+                    const response = await fetch(`/enter-room/${id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password })
+                    });
+                    if (!response.ok) throw new Error("Неверный пароль");
+                }
+                alert("Вы вошли в комнату!");
+                window.location.href = `/room.html?id=${id}`;
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        // Обновление иконки входа/аккаунта в зависимости от состояния
+        function updateUserIcon() {
+            const icon = document.getElementById('login-icon');
+            if (isUserLoggedIn) {
+                icon.src = '/account.svg';
+                icon.onclick = function() {
+                    window.location.href = '/account.html';
+                };
+            } else {
+                icon.src = '/login.svg';
+                icon.onclick = function() {
+                    window.location.href = '/login.html';
+                };
+            }
+        }
+
+        // Загрузка комнат и обновление иконки
+        fetchRooms();
+        updateUserIcon();
+    </script>
+</body>
+</html>

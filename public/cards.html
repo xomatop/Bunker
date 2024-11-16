@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bunker Card Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+        }
+
+        .container {
+            background-color: rgba(143, 143, 143, 0.76); /* Серый цвет с прозрачностью */
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container h1,
+        .container h2 {
+            margin-bottom: 10px;
+        }
+
+        .container select,
+        .container input[type="number"] {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        .container button {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .container button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Генератор карточек бункера</h1>
+        <div class="form-group">
+            <label for="numberOfCards">Количество карточек:</label>
+            <input type="number" id="numberOfCards" min="1" value="1">
+        </div>
+        <div class="form-group">
+            <button id="generateBtn">Сгенерировать</button>
+        </div>
+        <div id="cardsContainer"></div>
+    </div>
+
+    <!-- Контейнер для дополнительных действий -->
+    <div class="container">
+        <h2>Дополнительные действия</h2>
+        <div class="form-group">
+            <label for="additionalAction">Выберите действие:</label>
+            <select id="additionalAction">
+                <option value="">Выберите действие</option>
+                <option value="changeProfession">Перераздать у всех "Профессия"</option>
+                <option value="changeBiologicalCharacteristics">Перераздать у всех "Биологическая характеристика"</option>
+                <option value="changeHobby">Перераздать у всех "Хобби" (выберите количество)</option>
+                <option value="changeHealthState">Перераздать у всех "Состояние здоровья" (выберите количество)</option>
+                <option value="changePhobia">Перераздать у всех "Фобия" (выберите количество)</option>
+                <option value="changeOwnHobby">Поменять свою карту "Хобби"</option>
+                <option value="changeOwnHealthState">Поменять свою карту "Состояние здоровья"</option>
+                <option value="changeOwnPhobia">Поменять свою карту "Фобия"</option>
+                <option value="changeOwnLuggage">Поменять свою карту "Багаж"</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="fileCount">Выберите количество файлов:</label>
+            <input type="number" id="fileCount" min="1" value="1">
+        </div>
+        <div class="form-group">
+            <button id="additionalBtn">Применить</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const generateCardsButton = document.getElementById('generateBtn');
+            generateCardsButton.addEventListener('click', () => {
+                // Код генерации карт остается без изменений
+            });
+
+            const additionalActionButton = document.getElementById('additionalBtn');
+            additionalActionButton.addEventListener('click', () => {
+                const selectedAction = document.getElementById('additionalAction').value;
+                const numberOfChanges = document.getElementById('fileCount').value || 1;
+                
+                fetch(`/perform-action?action=${selectedAction}&number=${numberOfChanges}`)
+                    .then(response => response.json())
+                    .then(response => {
+                        const blob = new Blob([response], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `changes_${selectedAction}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    })
+                    .catch(error => console.error('Error performing action:', error));
+            });
+        });
+    </script>
+</body>
+</html>
